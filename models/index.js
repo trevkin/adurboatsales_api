@@ -28,6 +28,10 @@ const sequelize = new Sequelize(
             min: config.pool.min,
             acquire: config.pool.acquire,
             idle: config.pool.idle
+        },
+        define: {
+            //prevent sequelize from pluralizing table names
+            freezeTableName: true
         }
     }
 );
@@ -39,7 +43,10 @@ db.sequelize = sequelize;
 
 db.user = require("../models/user.model.js")(sequelize, Sequelize);
 db.role = require("../models/role.model.js")(sequelize, Sequelize);
-db.refreshToken = require("../models/refreshtoken.model.js")(sequelize, Sequelize);
+db.boat = require("../models/boat.model.js")(sequelize, Sequelize);
+db.owner = require("../models/owner.model.js")(sequelize, Sequelize);
+db.boats_owned = require("../models/boats_owned.model.js")(sequelize, Sequelize);
+db.refreshToken = require("../models/refresh_token.model.js")(sequelize, Sequelize);
 
 db.role.belongsToMany(db.user, {
     through: "user_roles",
@@ -50,6 +57,16 @@ db.user.belongsToMany(db.role, {
     through: "user_roles",
     foreignKey: "userId",
     otherKey: "roleId"
+});
+db.owner.belongsToMany(db.boat, {
+    through: "boats_owned",
+    foreignKey: "ownerId",
+    otherKey: "boatId"
+});
+db.boat.belongsToMany(db.owner, {
+    through: "boats_owned",
+    foreignKey: "boatId",
+    otherKey: "ownerId"
 });
 
 db.ROLES = ["user", "admin"];

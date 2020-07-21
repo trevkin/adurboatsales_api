@@ -12,6 +12,10 @@ module.exports = function(app) {
 
     app.get("/api/test/all", controller.allAccess);
 
+    app.get("/api/boat/list", controller.getBoatListPublic);
+
+    app.get("/api/boat", controller.getBoatPublic);
+
     app.get(
         "/api/test/user",
         [authJwt.verifyToken],

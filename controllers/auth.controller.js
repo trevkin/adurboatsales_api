@@ -4,16 +4,14 @@ const UserModel = db.user;
 const RoleModel = db.role;
 const Op = db.Sequelize.Op;
 const RefreshTokenModel = db.refreshToken;
-
-var jwt = require("jsonwebtoken");
-var bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 exports.signup = (req, res) => {
     // Save User to Database
     UserModel.create({
-        username: req.body.username,
+        userName: req.body.username,
         email: req.body.email,
-        password: bcrypt.hashSync(req.body.password, 8)
+        password: req.body.password
     })
         .then(user => {
             if (req.body.roles) {
@@ -43,7 +41,7 @@ exports.signup = (req, res) => {
 exports.signin = (req, res) => {
     UserModel.findOne({
         where: {
-            username: req.body.username
+            userName: req.body.username
         }
     })
         .then(dbUser => {
@@ -51,10 +49,7 @@ exports.signin = (req, res) => {
                 return res.status(404).send({ message: "User Not found." });
             }
 
-            let passwordIsValid = bcrypt.compareSync(
-                req.body.password,
-                dbUser.password
-            );
+            let passwordIsValid = dbUser.verifyPassword(req.body.password);
 
             if (!passwordIsValid) {
                 return res.status(401).send({
@@ -63,21 +58,22 @@ exports.signin = (req, res) => {
                 });
             }
 
-            let token = jwt.sign({ id: dbUser.id }, process.env.TOKEN_SECRET, {
+            let token = jwt.sign({ id: dbUser.userId }, process.env.TOKEN_SECRET, {
                 expiresIn: parseInt(process.env.TOKEN_SECRET_EXPIRY_SECONDS)
             });
 
-            let refreshToken = jwt.sign({ id: dbUser.id }, process.env.REFRESH_TOKEN_SECRET);
+            let refreshToken = jwt.sign({ id: dbUser.userId }, process.env.REFRESH_TOKEN_SECRET);
 
             RefreshTokenModel.create({
-                refreshtoken_hash: bcrypt.hashSync(refreshToken, 8)
+                userId: dbUser.userId,
+                refreshToken: refreshToken
             })
-                .then(user => {
-                    console.log("refresh token saved to db")
-                })
-                .catch(err => {
-                    res.status(500).send({ message: err.message });
-                });
+            .then(user => {
+                console.log("refresh token saved to db")
+            })
+            .catch(err => {
+                res.status(500).send({ message: err.message });
+            });
 
             let authorities = [];
             dbUser.getRoles().then(roles => {
@@ -85,7 +81,7 @@ exports.signin = (req, res) => {
                     authorities.push("ROLE_" + roles[i].name.toUpperCase());
                 }
                 res.status(200).send({
-                    id: dbUser.id,
+                    id: dbUser.userId,
                     username: dbUser.username,
                     email: dbUser.email,
                     roles: authorities,
@@ -99,41 +95,67 @@ exports.signin = (req, res) => {
         });
 };
 
-//this needs to go through database and delete the hashed token
+//this goes through database and deletes the hashed token
 exports.signout = (req, res) => {
+    console.log("signout called")
     RefreshTokenModel.destroy({
         where: {
-            refreshtoken_hash: bcrypt.hashSync(req.body.refresh_token, 8)
+            refreshToken: req.body.refresh_token
         }
     })
-    refreshTokens = refreshTokens.filter(token => token !== req.body.token)
     res.sendStatus(204)
 };
 
-exports.refresh = (req, res) => {
-    const refreshToken = req.body.refreshToken
-    if (refreshToken == null) return res.sendStatus(401)
-
-    const foundToken = RefreshTokenModel.findOne({ where: { refreshtoken_hash: bcrypt.hashSync(refreshToken, 8) } });
-    if (foundToken === null) {
-        console.log("didnt find token" )
-        res.sendStatus(403)
-    }
-    console.log("foundToken :",foundToken)
+//this deletes all refreshTokens from the db that are associated with this userId
+exports.signoutall = (req, res) => {
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, tokenUser) => {
         if (err) return res.sendStatus(403)
-        console.log("found token user :",tokenUser.id)
-        UserModel.findOne({
+        RefreshTokenModel.destroy({
             where: {
-                id: tokenUser.id
+                userId: tokenUser.id
             }
         })
-        .then(dbUser => {
-            console.log("found db user :", dbUser)
-            const accessToken = jwt.sign({id: dbUser.id}, process.env.TOKEN_SECRET, {
-                expiresIn: parseInt(process.env.TOKEN_SECRET_EXPIRY_SECONDS)
-            });
-            res.json({accessToken: accessToken})
-        });
+        res.sendStatus(204)
     })
 };
+
+exports.refresh = (req, res) => {
+    //console.log("refresh")
+    const refreshToken = req.body.refreshToken
+    if (refreshToken == null) {
+        console.log("no refresh token provided")
+        return res.status(401).send({ message: 'no refresh token provided' });
+    }
+
+    console.log("token in header:",refreshToken)
+    RefreshTokenModel.findOne(
+        {
+            where: { refreshToken: refreshToken }
+        })
+        .then(dbRefreshToken => {
+
+            if (dbRefreshToken === null) {
+                console.log("didnt find token in db" )
+                return res.status(401).send({ message: 'Refresh token is invalid' });
+            }
+
+            console.log("found refreshToken in db:",dbRefreshToken)
+            jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, tokenUser) => {
+                if (err) return res.status(401).send({ message: 'Refresh token could not be verified' })
+                console.log("token user in db refreshtoken:",tokenUser.id)
+                UserModel.findOne({
+                    where: {
+                        userId: tokenUser.id
+                    }
+                })
+                .then(dbUser => {
+                    console.log("found db user :", dbUser.userId)
+                    const accessToken = jwt.sign({id: dbUser.id}, process.env.TOKEN_SECRET, {
+                        expiresIn: parseInt(process.env.TOKEN_SECRET_EXPIRY_SECONDS)
+                    });
+                    res.json({accessToken: accessToken})
+                });
+        })
+    })
+};
+

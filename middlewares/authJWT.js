@@ -17,7 +17,7 @@ verifyToken = (req, res, next) => {
         if (err) {
             console.log(err)
             return res.status(401).send({
-                message: "Unauthorized!"
+                message: "Unauthorized"
             });
         }
 

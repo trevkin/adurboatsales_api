@@ -1,3 +1,4 @@
+const { authJwt } = require("../middlewares");
 const { verifySignUp } = require("../middlewares");
 const controller = require("../controllers/auth.controller");
 
@@ -10,9 +11,9 @@ module.exports = function(app) {
         next();
     });
 
-    app.post(
-        "/api/auth/signup",
+    app.post("/api/auth/signup",
         [
+            authJwt.verifyToken, //remove this line if you want open registration
             verifySignUp.checkDuplicateUsernameOrEmail,
             verifySignUp.checkRolesExisted
         ],

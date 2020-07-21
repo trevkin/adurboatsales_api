@@ -1,16 +1,17 @@
 require('dotenv').config()
 const express = require("express")
 const bodyParser = require("body-parser")
-const cors = require("cors")
+
 
 const app = express()
 
-var corsOptions = {
-    origin: ["http://localhost:8080","https://localhost:8080","http://www.adurboatsales.co.uk","https://www.adurboatsales.co.uk"]
-}
+const cors = require("cors")
+// var corsOptions = {
+//     origin: ["http://192.168.0.13:8080","http://localhost:8080","https://localhost:8080","http://www.adurboatsales.co.uk","https://www.adurboatsales.co.uk"]
+// }
+app.use(cors())
 
-app.use(cors(corsOptions))
-
+app.use('/boats', express.static('assets/images/boats'));
 
 // parse requests of content-type - application/json
 app.use(bodyParser.json());
@@ -19,35 +20,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const db = require("./models");
-// const Role = db.role;
-// const User = db.user;
-//
-// db.sequelize.sync({force: true}).then(() => {
-//     console.log('Drop and Resync Db');
-//     initial();
-// });
-//
-// function initial() {
-//     Role.create({
-//         roleid: 1,
-//         name: "user"
-//     });
-//
-//     Role.create({
-//         roleid: 2,
-//         name: "moderator"
-//     });
-//
-//     Role.create({
-//         roleid: 3,
-//         name: "admin"
-//     });
-//
-//     User.create({
-//         username:"graham",
-//         password: "labybee"
-//     })
-// }
+
 
 db.sequelize.sync()
 
