@@ -150,9 +150,10 @@ exports.refresh = (req, res) => {
                 })
                 .then(dbUser => {
                     console.log("found db user :", dbUser.userId)
-                    const accessToken = jwt.sign({id: dbUser.id}, process.env.TOKEN_SECRET, {
+                    const accessToken = jwt.sign({id: dbUser.userId}, process.env.TOKEN_SECRET, {
                         expiresIn: parseInt(process.env.TOKEN_SECRET_EXPIRY_SECONDS)
                     });
+                    console.log("new access token is:", accessToken)
                     res.json({accessToken: accessToken})
                 });
         })

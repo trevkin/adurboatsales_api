@@ -29,7 +29,8 @@ module.exports = (sequelize, Sequelize) => {
         },
         boatLengthOA: {
             type: Sequelize.STRING,
-            max:10
+            max:10,
+            defaultValue: ''
         },
         boatLengthWater: {
             type: Sequelize.STRING,
