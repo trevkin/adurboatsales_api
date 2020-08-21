@@ -1,5 +1,7 @@
 const { authJwt } = require("../middlewares");
 const controller = require("../controllers/user.controller");
+const multer  = require('multer')
+const upload = multer({ dest: '../uploads/' })
 
 module.exports = function(app) {
     app.use(function(req, res, next) {
@@ -28,10 +30,22 @@ module.exports = function(app) {
         controller.updateBoat
     );
 
+    // app.post(
+    //     "/api/boat/image/add",
+    //     [authJwt.verifyToken, authJwt.isAdmin],
+    //     controller.addBoatImage
+    // );
+
     app.post(
         "/api/boat/image/add",
-        [authJwt.verifyToken, authJwt.isAdmin],
+        [authJwt.verifyToken, authJwt.isAdmin, upload.array('files', 12)],
         controller.addBoatImage
+    )
+
+    app.get(
+        "/api/boat/image/swap",
+        [authJwt.verifyToken, authJwt.isAdmin],
+        controller.swapBoatImages
     );
 
     app.delete(
