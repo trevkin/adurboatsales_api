@@ -15,20 +15,18 @@ verifyToken = (req, res, next) => {
 
     jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
         if (err) {
-            console.log(err)
+            console.log("token error, returning 401")
             return res.status(401).send({
                 message: "Unauthorized"
             });
         }
 
         req.userId = decoded.id;
-        console.log("req user id:", req.userId)
         next();
     });
 };
 
 isAdmin = (req, res, next) => {
-    console.log("isAdmin req user id:", req.userId)
     User.findByPk(req.userId).then(user => {
         user.getRoles().then(roles => {
             for (let i = 0; i < roles.length; i++) {

@@ -12,8 +12,6 @@ module.exports = function(app) {
         next();
     });
 
-
-
     app.get("/api/boat/list", controller.getBoatListPublic);
 
     app.get("/api/boat", controller.getBoatPublic);
@@ -29,12 +27,6 @@ module.exports = function(app) {
         [authJwt.verifyToken, authJwt.isAdmin],
         controller.updateBoat
     );
-
-    // app.post(
-    //     "/api/boat/image/add",
-    //     [authJwt.verifyToken, authJwt.isAdmin],
-    //     controller.addBoatImage
-    // );
 
     app.post(
         "/api/boat/image/add",

@@ -1,21 +1,19 @@
 const db = require("../models")
 const BoatModel = db.boat
-const BoatsOwnedModel = db.boats_owned
 const fs = require('fs')
 const jimp = require("jimp")
 const glob = require('glob')
 const imageSuffixes = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q']
 const sizeOf = require('image-size')
-
-
+const allowedImageTypes = ['jpg','png','bmp','tiff','gif']
+const fileExtension = require('file-extension')
 
 exports.allAccess = (req, res) => {
     res.status(200).send("Public Content.");
 };
 
 exports.getBoatListPublic = (req, res) => {
-    console.log("getBoatListPublic")
-    let sqlQuery = 'SELECT boatId, boatNumber, boatName, boatShortDesc, boatPrice, boatModel, boatManufacturer, boatLengthOA ' +
+    let sqlQuery = 'SELECT boatId, boatNumber, boatName, boatShortDesc, boatPrice, boatModel, boatManufacturer, boatLengthOA, boatStatus ' +
         'FROM boats WHERE 1=1 '
     let sqlParameters = []
 
@@ -30,16 +28,13 @@ exports.getBoatListPublic = (req, res) => {
     sqlQuery += ' ORDER BY ? ? LIMIT ?, ?'
     sqlParameters.push(req.query.orderBy, req.query.order, parseInt(req.query.limitFrom), parseInt(req.query.batchSize))
 
-    console.log(sqlQuery)
-    console.log(sqlParameters)
-    let output = db.sequelize.query(sqlQuery, {
+    db.sequelize.query(sqlQuery, {
         replacements: sqlParameters,
         model: BoatModel,
         type: db.sequelize.QueryTypes.SELECT
     })
         .then(dbBoats => {
             if (dbBoats) {
-                console.log("returning boats")
                 res.status(200).send({
                     boats: JSON.stringify(dbBoats)
                 });
@@ -54,11 +49,8 @@ exports.getBoatPublic = (req, res) => {
     let sqlQuery = 'SELECT * ' +
         'FROM boats ' +
         'WHERE boatId = ? '
-    console.log(req.query.boatId || 0)
     let sqlParameters = [req.query.boatId || 0]
 
-    console.log(sqlQuery)
-    console.log(sqlParameters)
     db.sequelize.query(sqlQuery, {replacements: sqlParameters, model: BoatModel, type: db.sequelize.QueryTypes.SELECT})
         .then(dbBoat => {
             if (dbBoat[0]) {
@@ -70,7 +62,6 @@ exports.getBoatPublic = (req, res) => {
 };
 
 exports.addBoat = (req, res) => {
-    console.log("addboat", req.body.params.type)
     if (req.body.params.type !== '' && req.body.params.name !== '') {
         let sqlQuery = 'SELECT MAX(boatCounter) as boatCounter FROM boats WHERE boatType = ?'
         let sqlParameters = [req.body.params.type]
@@ -81,38 +72,37 @@ exports.addBoat = (req, res) => {
             model: BoatModel,
             type: db.sequelize.QueryTypes.SELECT
         })
-        .then(dbBoat => {
-            if (dbBoat[0]) {
-                highestNumber = dbBoat[0].boatCounter + 1
-                console.log(highestNumber)
+            .then(dbBoat => {
+                if (dbBoat[0]) {
+                    highestNumber = dbBoat[0].boatCounter + 1
+                    console.log(highestNumber)
 
-                sqlQuery = 'INSERT INTO boats (boatType, boatName, boatCounter, boatNumber, boatStatus, boatLengthOA, boatLengthWater, boatBeam, boatDraft, boatDisplacement, boatEquipment, boatAccommodation, boatDescription, boatAdvert) ' +
-                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
+                    sqlQuery = 'INSERT INTO boats (boatType, boatName, boatCounter, boatNumber, boatStatus, boatLengthOA, boatLengthWater, boatBeam, boatDraft, boatDisplacement, boatEquipment, boatAccommodation, boatDescription, boatAdvert) ' +
+                        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
 
-                sqlParameters = []
+                    sqlParameters = []
 
-                sqlParameters.push(req.body.params.type)
-                sqlParameters.push(req.body.params.name)
-                sqlParameters.push(highestNumber)
-                sqlParameters.push(req.body.params.type+'B'+highestNumber)
-                sqlParameters.push('P')
-                sqlParameters = sqlParameters.concat(['','','','','','','','',''])
+                    sqlParameters.push(req.body.params.type)
+                    sqlParameters.push(req.body.params.name)
+                    sqlParameters.push(highestNumber)
+                    sqlParameters.push(req.body.params.type + 'B' + highestNumber)
+                    sqlParameters.push('P')
+                    sqlParameters = sqlParameters.concat(['', '', '', '', '', '', '', '', ''])
 
-                db.sequelize.query(sqlQuery, {
-                    replacements: sqlParameters,
-                    model: BoatModel,
-                    type: db.sequelize.QueryTypes.INSERT
-                })
-                .then(dbBoats => {
-                    if (dbBoats) {
-                        console.log("add boat",dbBoats[0])
-                        res.status(200).send({
-                            boats: JSON.stringify(dbBoats[0])
-                        });
-                    }
-                })
-            }
-        })
+                    db.sequelize.query(sqlQuery, {
+                        replacements: sqlParameters,
+                        model: BoatModel,
+                        type: db.sequelize.QueryTypes.INSERT
+                    })
+                        .then(dbBoats => {
+                            if (dbBoats) {
+                                res.status(200).send({
+                                    boats: JSON.stringify(dbBoats[0])
+                                });
+                            }
+                        })
+                }
+            })
     } else {
         res.status(400).send();
     }
@@ -150,13 +140,13 @@ exports.updateBoat = (req, res) => {
             model: BoatModel,
             type: db.sequelize.QueryTypes.UPDATE
         })
-        .then(updateArray => {
-            if (updateArray) {
-                res.status(200).send({
-                    boat: JSON.stringify({boatID: boat.boatID, changeMade: updateArray[1]})
-                });
-            }
-        })
+            .then(updateArray => {
+                if (updateArray) {
+                    res.status(200).send({
+                        boat: JSON.stringify({boatID: boat.boatID, changeMade: updateArray[1]})
+                    });
+                }
+            })
     } else {
         res.status(400).send();
     }
@@ -166,54 +156,47 @@ exports.addBoatImage = (req, res) => {
     if (req.body.boatId && req.files) {
         let commonPath = __dirname + '/../assets/images/boats/' + req.body.boatId
         let currentImageCount = 0
-        let badFiles = []
-        glob(__dirname + '/../assets/images/boats/' + req.body.boatId + '*_thumb.jpg', {}, (err, files) => {
-            currentImageCount = files.length
+        let results = []
+        let currentImages = glob.sync(commonPath + '[a-z]_thumb.jpg', [])
+        currentImageCount = currentImages.length
+
+        const promises = req.files.map(file => {
+            if (allowedImageTypes.includes(fileExtension(file.originalname))) {
+                let fileInfo = sizeOf(file.path);
+                return jimp.read(file.path)
+                    .then(imageFile => {
+                        if (fileInfo.width < 200) {
+                            results.push({file: file.originalname, error: "Image too small", success: false})
+                        } else {
+                            let width = fileInfo.width < 1024 ? fileInfo.width : 1024
+                            imageFile
+                                .quality(70)
+                                .resize(200, jimp.AUTO)
+                                .write(commonPath + imageSuffixes[currentImageCount] + "_thumb.jpg")
+                            imageFile
+                                .quality(70)
+                                .resize(width, jimp.AUTO)
+                                .write(commonPath + imageSuffixes[currentImageCount] + ".jpg")
+                            currentImageCount++
+
+                            results.push({file: file.originalname, error: null, success:true})
+                            return
+                        }
+                    })
+                    .catch((error) => {
+                        results.push({file: file.originalname, error: "Couldn't process image", success: false})
+                    })
+            } else {
+                return results.push({file: file.originalname, error: "Wrong file type", success: false})
+            }
         })
 
-        req.files.forEach((file, index) => {
-            console.log("looping file:", file.originalname)
-
-            jimp.read(file.path, function (err, image) {
-                if (err) {
-                    badFiles.push({file: file.originalname, error: "err"})
-                    console.log(err)
-                } else {
-                    if (currentImageCount > imageSuffixes.length - 1) {
-                        console.log("Exceeded boat image limit",  file.originalname)
-                        badFiles.push({file: file.originalname, error: "Exceeded boat image limit"})
-                    } else {
-                        sizeOf(file.path, function (error, dimensions) {
-                            if (!error) {
-
-                                if (dimensions.width < 200) {
-                                    badFiles.push({file: file.originalname, error: "Image too small"})
-                                } else {
-                                    let width = dimensions.width < 1024?dimensions.width:1024
-                                    image
-                                        .write(commonPath + imageSuffixes[currentImageCount] + "_thumb.jpg")
-                                        .resize(200,jimp.AUTO)
-                                    image
-                                        .write(commonPath + imageSuffixes[currentImageCount] + ".jpg")
-                                        .resize(width,jimp.AUTO)
-                                }
-                            } else {
-                                badFiles.push({file: file.originalname, error: error})
-                            }
-
-                            currentImageCount++
-                        })
-                    }
-                }
+        Promise.allSettled(promises)
+        .then(() => {
+            res.status(200).send({
+                results: JSON.stringify(results)
             })
         })
-        if (badFiles.length === 0) {
-            console.log("Boat Images Added")
-            res.status(200).send("Boat Images Added")
-        } else {
-            console.log("Bad files")
-            res.status(400).send(badFiles)
-        }
     } else {
         console.log("Missing Data")
         res.status(500).send("Missing Data")
@@ -224,16 +207,15 @@ exports.deleteBoatImage = (req, res) => {
     if (req.query.boatId !== '' && req.query.imageSuffix !== '') {
         let imageSuffix = req.query.imageSuffix
         let index = imageSuffixes.indexOf(imageSuffix)
-        let commonPath = __dirname+'/../assets/images/boats/'+req.query.boatId
+        let commonPath = __dirname + '/../assets/images/boats/' + req.query.boatId
         fs.unlinkSync(commonPath + imageSuffix + ".jpg")
         fs.unlinkSync(commonPath + imageSuffix + "_thumb.jpg")
 
-        if (index < imageSuffixes.length-1) {
-            for(let i=index;i<imageSuffixes.length-1;i++) {
-                if (fs.existsSync(commonPath + imageSuffixes[i+1] + ".jpg")) {
-                    console.log(imageSuffixes[i])
-                    fs.renameSync(commonPath + imageSuffixes[i+1] + ".jpg", commonPath + imageSuffixes[i] + ".jpg")
-                    fs.renameSync(commonPath + imageSuffixes[i+1] + "_thumb.jpg", commonPath + imageSuffixes[i] + "_thumb.jpg")
+        if (index < imageSuffixes.length - 1) {
+            for (let i = index; i < imageSuffixes.length - 1; i++) {
+                if (fs.existsSync(commonPath + imageSuffixes[i + 1] + ".jpg")) {
+                    fs.renameSync(commonPath + imageSuffixes[i + 1] + ".jpg", commonPath + imageSuffixes[i] + ".jpg")
+                    fs.renameSync(commonPath + imageSuffixes[i + 1] + "_thumb.jpg", commonPath + imageSuffixes[i] + "_thumb.jpg")
                 }
             }
         }
@@ -241,15 +223,13 @@ exports.deleteBoatImage = (req, res) => {
     } else {
         res.status(400).send("Something went wrong");
     }
-
-
 };
 
 exports.swapBoatImages = (req, res) => {
     if (req.query.boatId !== '' && req.query.firstImageSuffix !== '' && req.query.secondImageSuffix !== '') {
         let firstSuffix = req.query.firstImageSuffix
         let secondSuffix = req.query.secondImageSuffix
-        let commonPath = __dirname+'/../assets/images/boats/'+req.query.boatId
+        let commonPath = __dirname + '/../assets/images/boats/' + req.query.boatId
 
         try {
             fs.renameSync(commonPath + firstSuffix + ".jpg", commonPath + firstSuffix + "_temp.jpg")
@@ -260,14 +240,11 @@ exports.swapBoatImages = (req, res) => {
             fs.renameSync(commonPath + firstSuffix + "_thumb_temp.jpg", commonPath + secondSuffix + "_thumb.jpg")
             res.status(200).send()
         } catch (e) {
-            console.log("swap error:", e.message)
-            res.status(500).send("There was a problem with swapping the images: "+e.message)
+            res.status(500).send("There was a problem with swapping the images: " + e.message)
         }
-    }
-    else {
+    } else {
         res.status(400).send("Something wrong when swapping the images")
     }
-
 };
 
 exports.boatListAdmin = (req, res) => {
