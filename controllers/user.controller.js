@@ -21,9 +21,13 @@ exports.getBoatListPublic = (req, res) => {
         sqlQuery += ' AND boatType = ? '
         sqlParameters.push(req.query.type)
     }
-    if (req.query.status !== undefined && req.query.status !== '') {
+    if (req.query.status !== '') {
         sqlQuery += ' AND boatStatus = ? '
         sqlParameters.push(req.query.status)
+    }
+    if (req.query.name !== '') {
+        sqlQuery += ' AND boatName LIKE ? '
+        sqlParameters.push(req.query.name+'%')
     }
     sqlQuery += ' ORDER BY ? ? LIMIT ?, ?'
     sqlParameters.push(req.query.orderBy, req.query.order, parseInt(req.query.limitFrom), parseInt(req.query.batchSize))
