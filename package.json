@@ -21,7 +21,7 @@
     "glob": "^7.1.6",
     "image-size": "^0.8.3",
     "jimp": "^0.16.0",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.0",
     "multer": "^1.4.2",
     "mysql2": "^2.1.0",
     "nodemailer": "^6.4.11",
